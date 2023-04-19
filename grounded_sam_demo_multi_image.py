@@ -3,6 +3,7 @@ import os
 import copy
 import glob
 from tqdm import tqdm
+import threading
 
 import numpy as np
 import json
@@ -102,7 +103,7 @@ def show_box(box, ax, label):
     ax.text(x0, y0, label)
 
 
-def save_mask_data(output_dir, mask_list, img_name, blur=0):
+def save_mask_data(output_dir, mask_list, img_name, image_pil, blur=0):
     value = 0  # 0 for background
     mask_img = torch.zeros(mask_list.shape[-2:])
     for idx, mask in enumerate(mask_list):
@@ -113,6 +114,7 @@ def save_mask_data(output_dir, mask_list, img_name, blur=0):
     # apply gaussian blur
     mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=blur))
     mask_img.save(os.path.join(f"{output_dir}/mask/", f'{img_name}.jpg'))
+    image_pil.save(os.path.join(f"{output_dir}/RGB/", f"{img_name}.jpg"))
 
 def infer_single_image(img_path, model, predictor, text_prompt, box_threshold, text_threshold, blur, device="cpu"):
     # get image name from path without extension
@@ -153,9 +155,8 @@ def infer_single_image(img_path, model, predictor, text_prompt, box_threshold, t
         multimask_output = False,
     )
     
-    save_mask_data(output_dir, masks, img_name, blur)
-    # save raw image
-    image_pil.save(os.path.join(f"{output_dir}/RGB/", f"{img_name}.jpg"))
+    # run in new thread to increase speed
+    threading.Thread(target=save_mask_data, args=(output_dir, masks, img_name, image_pil, blur)).start()
 
 if __name__ == "__main__":
 
